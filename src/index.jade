@@ -1,0 +1,1060 @@
+doctype html
+html
+  head
+    meta(charset='utf-8')
+    meta(name='viewport', content='width=device-width, initial-scale=1, maximum-scale=1')
+    title Simulating Unfairness
+
+    link(rel='stylesheet', type='text/css', href='build/build.css')
+
+  body
+
+    article
+
+      section
+        h1.bullet Simulating Unfairness
+        p.bullet#byline
+          | Duncan Beevers Web Witch @
+          = ' '
+          a(href="https://plex.tv") Plex
+
+      section
+        h2.bullet What is fairness?
+        blockquote.bullet
+          p
+            strong fairness
+            | : impartial and just treatment or behavior without favoritism or discrimination
+          a(href="https://en.oxforddictionaries.com/definition/fairness") Oxford English
+
+        aside
+          p Point out "without favoritism or discrimination"
+
+      section
+        h2 Simulating Fairness
+        h3
+          | I want my program to behave
+          strong  randomly
+          | , and also
+          strong  predictably.
+
+
+      section
+        div.img.img-coin
+        h3 Fairness has to do with outcomes, and their relative likelihoods.
+        h3 We say a coin is fair when its flip is as likely to come up heads as tails.
+
+        aside
+          p My computer doesn't have a coin, but I can simulate one.
+          p This talk is about JavaScript...
+          p so randomness comes from:
+
+      section
+        div.bullet.img.img-js-logo
+        h2.bullet
+          pre
+            code.language-javascript.
+              Math.random()
+        blockquote.bullet
+          p
+            | The
+            = ' '
+            strong Math.random()
+            |  function returns a floating-point, pseudo-random number in the range
+            = ' '
+            code [0, 1)
+          a(href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random") MDN Math.random()
+
+      section
+        div.img.img-justice-scale
+        h2 Measuring Fairness
+        aside
+          p To see if a coin is fair, we can flip it a bunch of times, keeping a tally of how many times it comes up heads, and how many times it comes up tails.
+          p After lots of flips, the two tallies should be roughly the same.
+
+      section
+        pre
+          code.language-javascript.
+            function makeN(fn, n) {
+              const result = []
+              while (n--) {
+                result.push(fn())
+              }
+              return result
+            }
+      section
+        pre
+          code.language-javascript.
+            const randoms = makeN.bind(null, Math.random)
+
+            randoms(3)
+            [ 0.8446200993771815, 0.4806491784680793, 0.14020222181145203 ]
+
+        aside
+          p Here's the function for getting a collection of random numbers.
+
+      section
+        pre
+          code.language-javascript.
+            function tally(fn, collection) {
+              return collection.reduce((acc, element) =&gt; {
+                const key = fn(element)
+                acc[key] = (acc[key] || 0) + 1
+
+                return acc
+              }, {})
+            }
+
+        aside
+          p Here's an "unrelated" function for counting things up.
+          p It looks complicated, but it's easy to understand what it does.
+
+      section
+        pre
+          code.language-javascript.
+            tally((veg) =&gt; veg, [ 'carrot', 'carrot', 'turnip' ])
+            {
+              carrot: 2,
+              turnip: 1
+            }
+
+      section
+        pre.bullet
+          code.language-javascript.
+            (veg) =&gt; veg
+
+        pre.bullet
+          code.language-javascript.
+            tally((veg) =&gt; veg, [ 'carrot', 'carrot', 'turnip' ])
+            {
+              carrot: 2,
+              turnip: 1
+            }
+
+        pre.bullet
+          code.language-javascript.
+            [ 'carrot', 'carrot', 'turnip' ].map((veg) =&gt; veg)
+            [ 'carrot', 'carrot', 'turnip' ]
+
+      section
+        pre
+          code.language-javascript.
+            const toCoinFlip = (n) =&gt; n &lt; 0.5 ? 'heads': 'tails'
+
+            const toOneDigit = (n) =&gt; n.toString().substr(0, 3)
+
+            const toTwoDigits = (n) =&gt; n.toString().substr(0, 4)
+
+      section
+        pre
+          code.language-javascript.
+            const numbers = randoms(3)
+            [ 0.8446200993771815, 0.4806491784680793, 0.41020222181145203 ]
+
+            numbers.map(toCoinFlip)
+            [ 'tails', 'heads', 'heads' ]
+
+            numbers.map(toOneDigit)
+            [ '0.8', '0.4', '0.4' ]
+
+            numbers.map(toTwoDigits)
+            [ '0.84', '0.48', '0.41' ]
+
+      section
+        pre.bullet
+          code.language-javascript.
+            tally(toOneDigit, numbers)
+            {
+              '0.8': 1,
+              '0.4': 2
+            }
+
+            tally(toTwoDigits, numbers)
+            {
+              '0.84': 1,
+              '0.48': 1,
+              '0.41': 1
+            }
+
+        aside
+          p By using a different transformation, we can see and compare clusters, giving us a sense of whether what we're seeing is fair.
+          p Now let's flip those coins.
+
+      section
+        pre.bullet
+          code.language-javascript.
+            tally(toCoinFlip, randoms(10000))
+            {
+              heads: 5057,
+              tails: 4943
+            }
+        aside
+          p Not too bad. With just a thousand coin flips we see we're not too far off.
+          p And when we cluster by the first decimal digit:
+
+      section
+        pre
+          code.language-javascript.
+            tally(toOneDigit, randoms(10000))
+            {
+              '0.0': 996,  '0.1': 1002,
+              '0.2': 984,  '0.3': 1010,
+              '0.4': 997,  '0.5': 1006,
+              '0.6': 1001, '0.7': 1054,
+              '0.8': 985,  '0.9': 965
+            }
+        aside
+          p As expected, when we cluster by the first digit of the decimal expression of the float, we see each digit got about one-tenth of the tallies.
+
+      section
+        div.img.img-coin
+        h2 Simulating a fair coin
+
+        aside
+          p
+            | Here's that same fair coin program from earlier. It subdivides the the space from
+            code  [0, 1)
+            |  evenly in half, and maps each half to the string 'heads' or 'tails'
+
+      section
+        div.vert.bullet
+          pre
+            code.language-javascript.
+              (n) =&gt; n &lt; 0.5 ? 'heads': 'tails'
+          h3
+            | Start with the number line from
+            code  [0, 1)
+
+          div.number-line.bare
+            | 0
+            div.number-line-portion.portion-100
+            | 1
+
+        div.vert.bullet.zero-one-cheater
+          div.number-line
+            | 0
+            div.bullet.number-line-portion.portion-50 heads
+            div.bullet.number-line-portion.portion-50 tails
+            | 1
+          h3
+            | Split the space in half, from
+            code  [0, 0.5)
+            |  and from
+            code  [0.5, 1)
+          h3 Map each half to an outcome.
+        aside
+          p
+            strong heads
+            |  fills the space from
+            code  [0, 0.5)
+          p
+            strong tails
+            |  fills the space from
+            code  [0.5, 1)
+
+      section
+        div
+          h4 Simulating an unfair coin
+          pre
+            code.language-javascript.
+              (n) =&gt; n &lt; 0.6 ? 'heads': 'tails'
+        div.number-line
+          | 0
+          div.number-line-portion.portion-60 heads
+          div.number-line-portion.portion-40 tails
+          | 1
+
+      section
+        div
+          h4 A really unfair coin
+          pre
+            code.language-javascript.
+              (n) =&gt; n &lt; 0.9 ? 'heads': 'tails'
+        div.number-line
+          | 0
+          div.number-line-portion.portion-90 heads
+          div.number-line-portion.portion-10 tails
+          | 1
+
+      section
+        pre
+          code.language-javascript.
+            const toMostlyHeads = (n) =&gt; n &lt; 0.9 ? 'heads': 'tails'
+            tally(toMostlyHeads, randoms(10000))
+            {
+              'heads': 8986,
+              'tails': 1014
+            }
+        aside
+          p Again, the tallys are skewed just about how we expect.
+
+      section
+        div.img.img-cube
+        h2 Simulating a D6
+
+        aside
+          p We've made a fair coin, and an unfair coin, and we've seen how to measure their fairness.
+          p Now, we'll increase the complexity by simulating a fair die.
+
+      section
+        h3.bullet A fair die has six, equally-likely outcomes.
+        div.vert.bullet
+          h3
+            | The fair coin split
+            code  [0, 1)
+            |  in half
+          div.number-line.domino.domino-one
+            | 0
+            div.number-line-portion.portion-50 heads
+            div.number-line-portion.portion-50 tails
+            | 1
+        div.vert.bullet
+          h3
+            | The fair die splits
+            code  [0, 1)
+            |  into six equal parts.
+          div.number-line.domino.domino-two
+            | 0
+            div.number-line-portion.portion-16-6 one
+            div.number-line-portion.portion-16-6 two
+            div.number-line-portion.portion-16-6 three
+            div.number-line-portion.portion-16-6 four
+            div.number-line-portion.portion-16-6 five
+            div.number-line-portion.portion-16-6 six
+            | 1
+
+        aside
+          p DISCUSSION: How do we go about simulating a die roll?
+
+      section
+        div.vert.bullet
+          h3 We can take our input space…
+          div.vert.grow-number-line
+            div.number-line
+              | 0
+              div.number-line-portion.portion-16-6 one
+              div.number-line-portion.portion-16-6 two
+              div.number-line-portion.portion-16-6 three
+              div.number-line-portion.portion-16-6 four
+              div.number-line-portion.portion-16-6 five
+              div.number-line-portion.portion-16-6 six
+              span.one-to-six-parent
+                span.one-to-six-one 1
+                span.one-to-six-six 6
+
+        div.bullet
+          h3 And scale it up ×6
+
+        pre.bullet
+          code.language-javascript.
+            const toInt6 = (n) =&gt; Math.floor(n * 6)
+
+            randoms(3).map(toInt6)
+            [ 4, 3, 2 ]
+
+        aside
+          p
+            code [0, 1)
+            |  corresponds to 'one'
+          p
+            code [1, 2)
+            |  corresponds to 'two'
+
+      section
+        pre
+          code.language-javascript.
+            const sidesOfADie =
+              [ 'one', 'two', 'three', 'four', 'five', 'six' ]
+
+            const toDieRoll = (n) =&gt; sidesOfADie[Math.floor(n * 6)]
+
+            randoms(10).map(toDieRoll)
+            [ 'three', 'six', 'three', 'three', 'four',
+              'two', 'five', 'one', 'two', 'one' ]
+
+        aside
+          p
+            | We scale up the random float to
+            code  [0-6)
+            | , then floor the value to an int, getting
+            code  0, 1, 2, 3, 4,
+            |  or
+            code  5
+          p
+            | Evenly spaced segments like this make it easy to figure out how to map
+            code  [0, 1)
+            |  to an outcome.
+          p
+      section
+        div.img.img-ticket
+        h2 Simulating Lots
+
+      section
+        div.vert.bullet
+          h3 Customers cast lots for bubble tea flavor of the month.
+          div.horz.center
+            table.animate-lots
+              tbody
+                tr
+                  td 18
+                  td almond
+                tr
+                  td 12
+                  td chai
+                tr
+                  td 30
+                  td kiwi
+                tr
+                  td 24
+                  td lychee
+                tr
+                  td 36
+                  td taro
+              div.img.img-coffee
+
+        div.vert.bullet
+          div.number-line
+            div.number-line-portion.portion-15 almond
+            div.number-line-portion.portion-10 chai
+            div.number-line-portion.portion-25 kiwi
+            div.number-line-portion.portion-20 lychee
+            div.number-line-portion.portion-30 taro
+
+        aside
+          p
+            | Now that there are more choices involved with uneven splits between them, it's less obvious how to go about mapping from
+            code  [0, 1)
+            |  to an outcome.
+
+      section
+        table
+          tbody.bullet
+            tr
+              td 18
+              td almond
+            tr
+              td 12
+              td chai
+            tr
+              td 30
+              td kiwi
+            tr
+              td 24
+              td lychee
+            tr
+              td 36
+              td taro
+          tfoot.bullet
+            tr
+              td 120
+              td Total
+
+      section
+        div.vert.bullet
+          h3 Again, we take the input space.
+          div.vert.grow-number-line
+            div.number-line
+              | 0
+              div.number-line-portion.portion-15 almond
+              div.number-line-portion.portion-10 chai
+              div.number-line-portion.portion-25 kiwi
+              div.number-line-portion.portion-20 lychee
+              div.number-line-portion.portion-30 taro
+              span.one-to-six-parent
+                span.one-to-six-one 1
+                span.one-to-six-six 120
+
+        div.bullet
+          h3 This time we scale it up ×120
+
+        pre.bullet
+          code.language-javascript.
+            const toInt120 = (n) =&gt; Math.floor(n * 120)
+
+            randoms(3).map(toInt120)
+            [ 61, 102, 14 ]
+
+      section
+        h3 Now we have a clean mapping.
+        table.bullet
+          thead
+          tbody
+            tr
+              td
+                code [0‑17]
+              td almond
+            tr
+              td
+                code [18‑29]
+              td chai
+            tr
+              td
+                code [30‑59]
+              td kiwi
+            tr
+              td
+                code [60-83]
+              td lychee
+            tr
+              td
+                code [84‑119]
+              td taro
+
+      section
+        pre.bullet
+          code.language-javascript.
+            const toBubbleTea = (n) =&gt; {
+              const k = Math.floor(n * 120)
+
+              if (k &lt;= 17) return 'almond'
+              if (k &lt;= 29) return 'chai'
+              if (k &lt;= 59) return 'kiwi'
+              if (k &lt;= 83) return 'lychee'
+              return 'taro'
+            }
+        h2.bullet What's the big O?
+
+        aside
+          p
+            | Trick question. This specific routine is
+            code  O(1)
+            | , but building the routine is
+            code  O(n)
+            |  and executing it has a cost that increases depending on the number of total possible outcomes.
+          p
+            | Of course this is a linear scan. We could improve the performance here by splitting the space more intelligently, perhaps with a b-tree or other
+            code  O(log n)
+            | -ish search.
+
+      section
+        pre.bullet
+          code.language-javascript.
+            const toBubbleTea = (n) =&gt; {
+              const k = Math.floor(n * 120)
+
+              if (k &lt;= 17) return 'almond'
+              if (k &lt;= 29) return 'chai'
+              if (k &lt;= 59) return 'kiwi'
+              if (k &lt;= 83) return 'lychee'
+              if (k &lt;= 119) return 'taro'
+              …
+              if (k &lt;= 167433) return 'yama no imo'
+              return 'zucchini'
+            }
+        div.bullet.big-no
+
+      section
+        div.img.img-undercover
+        h2 Alias Method
+        h3 A fair die of unfair coins.
+      section
+        h3 There were some lots to hand out.
+        h3 Some outcomes received more than others.
+        h3 Who got more than their fair share?
+
+      section
+        h3 What is a fair share?
+        h4 There were 120 lots and 5 different flavors.
+        h2 120 ÷ 5 = 24
+
+      section
+        h4
+          strong almond
+          |  received 18 lots. Less than a fair share.
+        h2 18 ÷ 24 = 75﹪
+
+      section
+        h4
+          strong kiwi
+          |  received 30 lots. More than a fair share.
+        h2 30 ÷ 24 = 125﹪
+
+      section
+        h3 Computing the share.
+        div.math share = \frac{lots}{(\frac{totalLots}{outcomes})} = (\frac{outcomes}{totalLots}) \times lots
+        div.math \frac{outcomes}{totalLots} = \frac{5}{120} = 0.041\overline{66}
+        div.math share = 0.041\overline{66} \times lots
+
+        aside
+          p We need a couple of pieces of information about the whole distribution of probabilities before we're able to fill in the parts of this equation.
+
+      section
+        table
+          tbody.bullet
+            tr
+              td 75﹪
+              td 18
+              td almond
+            tr
+              td 50﹪
+              td 12
+              td chai
+            tr
+              td 125﹪
+              td 30
+              td kiwi
+            tr
+              td 100﹪
+              td 24
+              td lychee
+            tr
+              td 150﹪
+              td 36
+              td taro
+          tfoot.bullet
+            tr
+              td 500﹪
+              td
+              td Total
+
+      section
+        div.horz
+          table
+            thead
+              tr
+                th(colspan="2") &lt; 100﹪
+            tbody
+              tr
+                td 75﹪
+                td almond
+              tr
+                td 50﹪
+                td chai
+          table
+            thead
+              tr
+                th(colspan="2") &gt;= 100﹪
+            tbody
+              tr
+                td 125﹪
+                td kiwi
+              tr
+                td 100﹪
+                td lychee
+              tr
+                td 150﹪
+                td taro
+        h3 Partition the probabilities by size
+
+      section
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+              tbody
+                tr
+                  td 75﹪
+                  td almond
+                tr
+                  td 50﹪
+                  td chai
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 125﹪
+                  td kiwi
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.null
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+              tbody
+                tr
+                  td 50﹪
+                  td chai
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 125﹪
+                  td kiwi
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+              tbody
+                tr
+                  td 50﹪
+                  td chai
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 100﹪
+                  td kiwi
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.null
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 100﹪
+                  td kiwi
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 50﹪
+                  td kiwi
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+              tbody
+                tr
+                  td 50﹪
+                  td kiwi
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-3 kiwi
+              div.number-line-portion.vportion-50.null
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 100﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-3 kiwi
+              div.number-line-portion.vportion-50.color-4 lychee
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 50﹪
+                  td lychee
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-3 kiwi
+              div.number-line-portion.vportion-50.color-4 lychee
+            div.bucket-line-portion.hollow.portion-20
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+              tbody
+                tr
+                  td 50﹪
+                  td lychee
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-3 kiwi
+              div.number-line-portion.vportion-50.color-4 lychee
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-4 lychee
+              div.number-line-portion.vportion-50.null
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 150﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-3 kiwi
+              div.number-line-portion.vportion-50.color-4 lychee
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-4 lychee
+              div.number-line-portion.vportion-50.color-5 taro
+            div.bucket-line-portion.hollow.portion-20
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+              tbody
+                tr
+                  td 100﹪
+                  td taro
+
+        div.bucket-phase.vert.bullet
+          div.bucket-line
+            div.bucket-line-portion.portion-20
+              div.number-line-portion.vportion-75.color-1 almond
+              div.number-line-portion.vportion-25.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-2 chai
+              div.number-line-portion.vportion-50.color-3 kiwi
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-3 kiwi
+              div.number-line-portion.vportion-50.color-4 lychee
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-50.color-4 lychee
+              div.number-line-portion.vportion-50.color-5 taro
+            div.bucket-line-portion.hollow.portion-20
+              div.number-line-portion.vportion-100.color-5 taro
+
+          div.horz
+            table
+              thead
+                tr
+                  th(colspan="2") Smalls
+            table
+              thead
+                tr
+                  th(colspan="2") Bigs
+      section
+        div.bucket-line.short
+          div.bucket-line-portion.portion-20
+            div.number-line-portion.vportion-75.color-1 almond
+            div.number-line-portion.vportion-25.color-3 kiwi
+          div.bucket-line-portion.hollow.portion-20
+            div.number-line-portion.vportion-50.color-2 chai
+            div.number-line-portion.vportion-50.color-3 kiwi
+          div.bucket-line-portion.hollow.portion-20
+            div.number-line-portion.vportion-50.color-3 kiwi
+            div.number-line-portion.vportion-50.color-4 lychee
+          div.bucket-line-portion.hollow.portion-20
+            div.number-line-portion.vportion-50.color-4 lychee
+            div.number-line-portion.vportion-50.color-5 taro
+          div.bucket-line-portion.hollow.portion-20
+            div.number-line-portion.vportion-100.color-5 taro
+        pre
+          code.language-javascript.
+            const slots = [
+              { cutoff: 0.75, heads: 'almond', tails: 'kiwi'   },
+              { cutoff: 0.5,  heads: 'chai',   tails: 'kiwi'   },
+              { cutoff: 0.5,  heads: 'kiwi',   tails: 'lychee' },
+              { cutoff: 0.5,  heads: 'lychee', tails: 'taro'   },
+              { cutoff: 1,    heads: 'taro',   tails: null     }
+            ]
+
+      section
+        pre
+          code.language-javascript.
+            function sample(slots) {
+              const k = Math.floor(Math.random() * slots.length)
+              const slot = slots[k]
+
+              return Math.random() &lt; slot.cutoff ?
+                slot.heads : slot.tails
+            }
+
+      section
+        h1 To The Code
+
+
+    script(src='build/build.js')
